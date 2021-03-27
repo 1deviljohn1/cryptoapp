@@ -196,5 +196,3 @@ export default {
   },
 };
 </script>
-
-<style src="./app.css"></style>
