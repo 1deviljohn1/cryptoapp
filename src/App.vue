@@ -9,8 +9,9 @@
             >
             <div class="mt-1 relative rounded-md shadow-md">
               <input
-                @keydown.enter="addTicker"
-                v-model="ticker"
+                @keydown.enter="addTicker()"
+                @input="duplicateTicker = false"
+                v-model.trim="ticker"
                 type="text"
                 name="wallet"
                 id="wallet"
@@ -18,10 +19,26 @@
                 placeholder="Например DOGE"
               />
             </div>
+            <div
+              v-if="tipsTickers().length"
+              class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap"
+            >
+              <span
+                v-for="ticker in tipsTickers()"
+                :key="ticker.FullName"
+                @click="selectTipTicker(ticker.Symbol)"
+                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
+              >
+                {{ ticker.Symbol }}
+              </span>
+            </div>
+            <div v-if="duplicateTicker" class="text-sm text-red-600">
+              Такой тикер уже добавлен
+            </div>
           </div>
         </div>
         <button
-          @click="addTicker"
+          @click="addTicker()"
           type="button"
           class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
         >
@@ -133,17 +150,68 @@ export default {
 
   data() {
     return {
-      ticker: null,
+      ticker: '',
       selectedTicker: null,
       tickers: [],
       graph: [],
+      coinList: [],
+      duplicateTicker: false,
     };
   },
 
+  async created() {
+    await this.fetchCoinList();
+  },
+
   methods: {
-    addTicker() {
+    async fetchCoinList() {
+      const res = await fetch(
+        'https://min-api.cryptocompare.com/data/all/coinlist?summary=true'
+      );
+      const data = await res.json();
+
+      this.coinList = Object.values(data.Data);
+    },
+
+    tipsTickers() {
+      let tipsTickers = [];
+
+      if (this.ticker) {
+        tipsTickers = this.coinList
+          .filter((t) => {
+            return (
+              t.FullName.toLowerCase().includes(this.ticker.toLowerCase()) ||
+              t.Symbol.toLowerCase().includes(this.ticker.toLowerCase())
+            );
+          })
+          .slice(0, 4);
+      }
+
+      return tipsTickers;
+    },
+
+    selectTipTicker(ticker) {
+      this.addTicker(ticker);
+    },
+
+    addTicker(ticker) {
+      const addedTicker = ticker || this.ticker;
+
+      if (!addedTicker) {
+        return;
+      }
+
+      if (
+        this.tickers.findIndex(
+          (t) => t.name.toLowerCase() === addedTicker.toLowerCase()
+        ) !== -1
+      ) {
+        this.duplicateTicker = true;
+        return;
+      }
+
       const newTicker = {
-        name: this.ticker,
+        name: addedTicker,
         price: '?',
       };
 
@@ -166,6 +234,7 @@ export default {
       this.tickers.find((t) => t.name === newTicker.name).timer = timer;
 
       this.ticker = null;
+      this.duplicateTicker = false;
     },
 
     deleteTicker(ticker) {
