@@ -178,6 +178,13 @@
 </template>
 
 <script>
+import { fetchTickersFromLS } from './services/storage';
+import {
+  fetchCoinList,
+  subscribeToTickerUpdate,
+  unsubscribeFromTicker,
+} from './services/api';
+
 export default {
   name: 'App',
 
@@ -197,9 +204,19 @@ export default {
   },
 
   async created() {
-    await this.fetchCoinList();
-    this.fetchTickers();
+    this.coinList = await fetchCoinList();
+    this.tickers = fetchTickersFromLS();
     this.fetchUrlParams();
+
+    if (!this.tickers.length) {
+      return;
+    }
+
+    this.tickers.forEach((ticker) => {
+      subscribeToTickerUpdate(ticker.name, (newPrice) => {
+        this.updateTicker(ticker.name, newPrice);
+      });
+    });
   },
 
   computed: {
@@ -258,6 +275,13 @@ export default {
     isLastPage() {
       return this.filteredTickers.length <= this.page * 6;
     },
+
+    pageParams() {
+      return {
+        filter: this.filter,
+        page: this.page,
+      };
+    },
   },
 
   watch: {
@@ -278,44 +302,16 @@ export default {
       this.graph = [];
     },
 
-    page() {
+    pageParams(state) {
       window.history.pushState(
         null,
         document.title,
-        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
-      );
-    },
-
-    filter() {
-      window.history.pushState(
-        null,
-        document.title,
-        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+        `${window.location.pathname}?filter=${state.filter}&page=${state.page}`
       );
     },
   },
 
   methods: {
-    async fetchCoinList() {
-      const res = await fetch(
-        'https://min-api.cryptocompare.com/data/all/coinlist?summary=true'
-      );
-      const data = await res.json();
-
-      this.coinList = Object.values(data.Data);
-    },
-
-    fetchTickers() {
-      const localstorageData = JSON.parse(localStorage.getItem('cryptoapp'));
-
-      if (localstorageData) {
-        this.tickers = JSON.parse(localStorage.getItem('cryptoapp'));
-        this.tickers.forEach((t) => {
-          this.subscribeToTicker(t.name);
-        });
-      }
-    },
-
     fetchUrlParams() {
       const params = Object.fromEntries(
         new URL(window.location).searchParams.entries()
@@ -326,30 +322,13 @@ export default {
       }
 
       if (params.page) {
-        this.page = params.page;
+        this.page = parseInt(params.page);
       }
     },
 
     selectTipTicker(ticker) {
       this.ticker = ticker;
       this.addTicker(ticker);
-    },
-
-    subscribeToTicker(ticker) {
-      const timer = setInterval(async () => {
-        const response = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${ticker}&tsyms=USD&api_key=1ed93fceb5103274f9a0abe0ec4f2581fa40bbd4686bcddc6c0747e8454acaa2`
-        );
-        const data = await response.json();
-
-        this.tickers.find((t) => t.name === ticker).price = data.USD || '?';
-
-        if (this.selectedTicker === ticker) {
-          this.graph.push(data.USD);
-        }
-      }, 3000);
-
-      this.tickers.find((t) => t.name === ticker).timer = timer;
     },
 
     addTicker(ticker) {
@@ -360,20 +339,21 @@ export default {
       }
 
       const newTicker = {
-        name: addedTicker,
+        name: addedTicker.toUpperCase(),
         price: '?',
       };
 
       this.tickers.push(newTicker);
-      this.subscribeToTicker(newTicker.name);
+      subscribeToTickerUpdate(newTicker.name, (newPrice) => {
+        this.updateTicker(newTicker.name, newPrice);
+      });
 
       this.ticker = '';
     },
 
     deleteTicker(ticker) {
-      const timer = this.tickers.find((t) => t.name === ticker).timer;
-      clearInterval(timer);
       this.tickers = this.tickers.filter((t) => t.name !== ticker);
+      unsubscribeFromTicker(ticker);
 
       if (ticker === this.selectedTicker) {
         this.selectedTicker = null;
@@ -382,6 +362,14 @@ export default {
 
     selectTicker(ticker) {
       this.selectedTicker = this.selectedTicker === ticker ? null : ticker;
+    },
+
+    updateTicker(ticker, price) {
+      this.tickers.find((t) => t.name === ticker).price = price;
+
+      if (ticker === this.selectedTicker) {
+        this.graph.push(price);
+      }
     },
 
     deleteGraph() {
