@@ -137,12 +137,15 @@
         <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
           {{ selectedTicker }} - USD
         </h3>
-        <div class="flex items-end border-gray-600 border-b border-l h-64">
+        <div
+          ref="graph"
+          class="flex items-end border-gray-600 border-b border-l h-64"
+        >
           <div
             v-for="(bar, i) in normalizedGraph"
             :key="i"
-            :style="{ height: bar + '%' }"
-            class="bg-purple-800 border w-10"
+            :style="{ height: bar + '%', width: graphElemWidth + 'px' }"
+            class="bg-purple-800 border"
           ></div>
         </div>
         <button
@@ -194,6 +197,8 @@ export default {
       filter: '',
 
       page: 1,
+      graphElemWidth: 40,
+      graphElems: 10,
 
       selectedTicker: null,
 
@@ -216,6 +221,20 @@ export default {
       subscribeToTickerUpdate(ticker.name, (newPrice) => {
         this.updateTicker(ticker.name, newPrice);
       });
+    });
+  },
+
+  mounted() {
+    window.addEventListener('resize', () => {
+      if (!this.$refs.graph) {
+        return;
+      }
+
+      this.graphElems = this.calculateGraphElems();
+
+      if (this.graph.length > this.graphElems) {
+        this.graph = this.graph.slice(-this.graphElems);
+      }
     });
   },
 
@@ -300,6 +319,10 @@ export default {
 
     selectedTicker() {
       this.graph = [];
+
+      this.$nextTick().then(() => {
+        this.graphElems = this.calculateGraphElems();
+      });
     },
 
     pageParams(state) {
@@ -312,6 +335,9 @@ export default {
   },
 
   methods: {
+    calculateGraphElems() {
+      return this.$refs.graph.clientWidth / this.graphElemWidth;
+    },
     fetchUrlParams() {
       const params = Object.fromEntries(
         new URL(window.location).searchParams.entries()
@@ -369,6 +395,10 @@ export default {
 
       if (ticker === this.selectedTicker) {
         this.graph.push(price);
+      }
+
+      if (this.graph.length > this.graphElems) {
+        this.graph = this.graph.slice(-this.graphElems);
       }
     },
 
