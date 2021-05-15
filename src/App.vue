@@ -99,8 +99,11 @@
             v-for="ticker in paginatedTickers"
             :key="ticker.name"
             @click="selectTicker(ticker.name)"
-            :class="{ 'border-purple-800': ticker.name === selectedTicker }"
-            class="bg-white overflow-hidden shadow rounded-lg border-transparent border-solid border-4 cursor-pointer"
+            :class="[
+              ticker.name === selectedTicker ? 'border-purple-800' : '',
+              failedTickers.includes(ticker.name) ? 'bg-red-100' : 'bg-white',
+            ]"
+            class="overflow-hidden shadow rounded-lg border-transparent border-solid border-4 cursor-pointer"
           >
             <div class="px-4 py-5 sm:p-6 text-center">
               <dt class="text-sm font-medium text-gray-500 truncate">
@@ -186,6 +189,7 @@ import {
   fetchCoinList,
   subscribeToTickerUpdate,
   unsubscribeFromTicker,
+  ERROR_MESSAGE_WS,
 } from './services/api';
 
 export default {
@@ -194,6 +198,7 @@ export default {
   data() {
     return {
       ticker: '',
+      failedTickers: [],
       filter: '',
 
       page: 1,
@@ -320,6 +325,10 @@ export default {
     selectedTicker() {
       this.graph = [];
 
+      if (!this.selectedTicker) {
+        return;
+      }
+
       this.$nextTick().then(() => {
         this.graphElems = this.calculateGraphElems();
       });
@@ -338,6 +347,7 @@ export default {
     calculateGraphElems() {
       return this.$refs.graph.clientWidth / this.graphElemWidth;
     },
+
     fetchUrlParams() {
       const params = Object.fromEntries(
         new URL(window.location).searchParams.entries()
@@ -366,7 +376,7 @@ export default {
 
       const newTicker = {
         name: addedTicker.toUpperCase(),
-        price: '?',
+        price: '-',
       };
 
       this.tickers.push(newTicker);
@@ -391,14 +401,18 @@ export default {
     },
 
     updateTicker(ticker, price) {
-      this.tickers.find((t) => t.name === ticker).price = price;
+      if (price === ERROR_MESSAGE_WS) {
+        this.failedTickers.push(ticker);
+      } else {
+        this.tickers.find((t) => t.name === ticker).price = price;
 
-      if (ticker === this.selectedTicker) {
-        this.graph.push(price);
-      }
+        if (ticker === this.selectedTicker) {
+          this.graph.push(price);
+        }
 
-      if (this.graph.length > this.graphElems) {
-        this.graph = this.graph.slice(-this.graphElems);
+        if (this.graph.length > this.graphElems) {
+          this.graph = this.graph.slice(-this.graphElems);
+        }
       }
     },
 
