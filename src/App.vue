@@ -110,7 +110,7 @@
                 {{ ticker.name }} - USD
               </dt>
               <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                {{ ticker.price }}
+                {{ ticker.price || '-' }}
               </dd>
             </div>
             <div class="w-full border-t border-gray-200"></div>
@@ -184,7 +184,7 @@
 </template>
 
 <script>
-import { fetchTickersFromLS } from './services/storage';
+import { fetchTickersFromLS, updateTickersLS } from './services/storage';
 import {
   fetchCoinList,
   subscribeToTickerUpdate,
@@ -311,7 +311,7 @@ export default {
   watch: {
     tickers: {
       handler() {
-        localStorage.setItem('cryptoapp', JSON.stringify(this.tickers));
+        updateTickersLS(this.tickers);
       },
       deep: true,
     },
