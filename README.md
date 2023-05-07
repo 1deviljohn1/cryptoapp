@@ -1,24 +1,7 @@
 # cryptoapp
 
-## Project setup
-```
-npm install
-```
+Cryptoapp Vue 2
 
-### Compiles and hot-reloads for development
-```
-npm run serve
-```
+Studing Web socket and Service Workers
 
-### Compiles and minifies for production
-```
-npm run build
-```
-
-### Lints and fixes files
-```
-npm run lint
-```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+Templates getting from some free Youtube course
